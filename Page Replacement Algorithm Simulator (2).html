@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Page Replacement Algorithm Simulator</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f5fb;--card:#fff;--text:#1d2440;--muted:#667;--line:#e2e6f3;--pri:#4f46e5;--pri2:#7c3aed;--hit:#16a34a;--hitbg:#dcfce7;--flt:#dc2626;--fltbg:#fee2e2;--new:#d97706;--newbg:#fef3c7;--fifo:#6366f1;--lru:#14b8a6;--shadow:0 4px 18px rgba(40,50,110,.08)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1224;--card:#191d38;--text:#e8ebff;--muted:#9aa2c8;--line:#2b3157;--hitbg:#12361f;--fltbg:#411a1f;--newbg:#3d2e0e;--shadow:0 4px 18px rgba(0,0,0,.4)}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1224;--card:#191d38;--text:#e8ebff;--muted:#9aa2c8;--line:#2b3157;--hitbg:#12361f;--fltbg:#411a1f;--newbg:#3d2e0e;--shadow:0 4px 18px rgba(0,0,0,.4)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;padding:28px 16px 24px;text-align:center}
+header h1{margin:0 0 6px;font-size:clamp(22px,4.5vw,34px)}header p{margin:0;opacity:.9}
+nav{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+nav a{color:#fff;text-decoration:none;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:99px;font-size:13px}
+main{max-width:1080px;margin:0 auto;padding:16px}
+section{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px;border:1px solid var(--line)}
+h2{margin:0 0 12px;font-size:19px}h3{margin:14px 0 6px;font-size:16px}
+.grid{display:grid;gap:12px}.g3{grid-template-columns:2fr 1fr 1fr}
+label{font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px}
+input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+input:focus,select:focus{outline:2px solid var(--pri);border-color:transparent}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+button{font:inherit;font-weight:600;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);cursor:pointer;transition:.15s}
+button:hover:not(:disabled){transform:translateY(-1px);border-color:var(--pri)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.p{background:var(--pri);color:#fff;border-color:var(--pri)}
+button.chip{padding:4px 10px;font-size:12px;font-weight:500}
+#err{color:var(--flt);font-size:13px;min-height:18px;margin-top:6px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;font-size:12px;color:var(--muted)}
+.strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.rc{min-width:34px;text-align:center;padding:5px 8px;border-radius:8px;background:var(--bg);border:2px solid var(--line);font-weight:700;transition:.25s}
+.rc.h{background:var(--hitbg);border-color:var(--hit)}.rc.f{background:var(--fltbg);border-color:var(--flt)}
+.rc.now{transform:scale(1.18);box-shadow:0 0 0 3px var(--pri)}
+#banner{padding:12px 14px;border-radius:12px;background:var(--bg);border-left:5px solid var(--pri);margin-bottom:14px;min-height:50px}
+#banner.h{border-color:var(--hit);background:var(--hitbg)}#banner.f{border-color:var(--flt);background:var(--fltbg)}
+.frames{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:6px 0}
+.fr{width:92px;text-align:center}.fr small{color:var(--muted);font-size:11px;display:block;margin-bottom:3px}
+.box{height:84px;border-radius:14px;border:3px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;background:var(--bg);position:relative}
+.box.filled{border-style:solid;border-color:var(--pri)}
+.box.hit{background:var(--hitbg);border-color:var(--hit);animation:pulse .6s}
+.box.fault{background:var(--fltbg);border-color:var(--flt);animation:drop .55s}
+.box.fault.empty{background:var(--newbg);border-color:var(--new)}
+.tag{font-size:11px;font-weight:700;margin-top:4px;min-height:16px}
+.tag.h{color:var(--hit)}.tag.f{color:var(--flt)}.tag.n{color:var(--new)}
+@keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes drop{0%{transform:translateY(-34px);opacity:0}100%{transform:none;opacity:1}}
+#order{text-align:center;color:var(--muted);font-size:13px;margin-top:8px;min-height:20px}
+.tl{overflow-x:auto;margin-top:12px;max-width:100%}
+table{border-collapse:collapse;font-size:14px}
+th,td{border:1px solid var(--line);padding:5px 9px;text-align:center;min-width:38px}
+th{background:var(--bg);color:var(--muted);font-weight:600}
+td.hl{background:var(--newbg)}td.H{color:var(--hit);font-weight:700}td.F{color:var(--flt);font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.st{background:var(--bg);border-radius:12px;padding:12px;text-align:center}
+.st b{display:block;font-size:26px}.st span{font-size:12px;color:var(--muted)}
+.st.h b{color:var(--hit)}.st.f b{color:var(--flt)}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart{background:var(--bg);border-radius:12px;padding:14px}
+.chart h3{margin:0 0 8px;text-align:center;font-size:14px}
+.bars{display:flex;justify-content:center;align-items:flex-end;gap:34px;height:170px;border-bottom:2px solid var(--line)}
+.bw{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;width:70px}
+.bar{width:100%;border-radius:8px 8px 0 0;transition:height .6s ease;min-height:2px}
+.bw b{font-size:14px;margin-bottom:3px}.bar.fifo{background:var(--fifo)}.bar.lru{background:var(--lru)}
+.lab{display:flex;justify-content:center;gap:34px;font-size:12px;font-weight:600;margin-top:4px}.lab span{width:70px;text-align:center}
+#verdict{margin-top:12px;text-align:center;font-weight:600;padding:10px;border-radius:10px;background:var(--bg)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.note{background:var(--bg);border-radius:12px;padding:12px 14px}
+ul{margin:4px 0;padding-left:20px}
+.ex td:nth-child(4){text-align:left;min-width:230px}
+.tabs{display:flex;gap:8px;margin-bottom:8px}.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:10px 0 24px}
+@media(max-width:720px){.g3,.cmp,.two{grid-template-columns:1fr}.fr{width:72px}.box{height:68px;font-size:26px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+<h1>🧠 Page Replacement Algorithm Simulator</h1>
+<p>Visualize FIFO and LRU step by step and compare their performance</p>
+<nav><a href="#sim">Simulator</a><a href="#cmp">Comparison</a><a href="#learn">Learn</a><a href="#example">Worked example</a></nav>
+</header>
+<main>
+
+<section id="inputs">
+<h2>1 · Inputs</h2>
+<div class="grid g3">
+<div><label for="refs">Page reference string</label><input id="refs" value="7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1" inputmode="text" autocomplete="off"></div>
+<div><label for="frames">Memory frames (1–8)</label><input id="frames" type="number" min="1" max="8" value="3"></div>
+<div><label for="alg">Algorithm</label><select id="alg"><option value="FIFO">FIFO – First In First Out</option><option value="LRU">LRU – Least Recently Used</option></select></div>
+</div>
+<div class="presets">Try:
+<button class="chip" data-r="1,2,3,2,4,1,5" data-f="3">1,2,3,2,4,1,5</button>
+<button class="chip" data-r="1,2,3,4,1,2,5,1,2,3,4,5" data-f="3">Belady (3 frames)</button>
+<button class="chip" data-r="1,2,3,4,1,2,5,1,2,3,4,5" data-f="4">Belady (4 frames)</button>
+<button class="chip" data-r="7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1" data-f="3">Classic 20</button>
+<button class="chip" id="rand">Random</button>
+</div>
+<div id="err"></div>
+</section>
+
+<section id="sim">
+<h2>2 · Simulation</h2>
+<div class="btns" style="margin:0 0 14px">
+<button class="p" id="bStart">▶ Start</button>
+<button id="bPause">⏸ Pause</button>
+<button id="bResume">⏯ Resume</button>
+<button id="bPrev">⏮ Previous</button>
+<button id="bNext">⏭ Next Step</button>
+<button id="bReset">↺ Reset</button>
+<select id="speed" style="width:auto" aria-label="Speed"><option value="1500">Slow</option><option value="900" selected>Normal</option><option value="350">Fast</option></select>
+</div>
+<div class="strip" id="strip"></div>
+<div id="banner">Press <b>Start</b> to run automatically, or <b>Next Step</b> to go one reference at a time.</div>
+<div class="frames" id="frameBox"></div>
+<div id="order"></div>
+<div class="tl" id="tl"></div>
+</section>
+
+<section id="results">
+<h2>3 · Results (current algorithm)</h2>
+<div class="stats">
+<div class="st"><b id="sTot">0</b><span>Total references</span></div>
+<div class="st"><b id="sDone">0</b><span>Processed so far</span></div>
+<div class="st h"><b id="sHit">0</b><span>Page hits</span></div>
+<div class="st f"><b id="sFlt">0</b><span>Page faults</span></div>
+<div class="st h"><b id="sHr">0%</b><span>Hit ratio</span></div>
+<div class="st f"><b id="sFr">0%</b><span>Fault ratio</span></div>
+</div>
+</section>
+
+<section id="cmp">
+<h2>4 · FIFO vs LRU comparison <small style="font-weight:400;color:var(--muted)">(full string, same frames)</small></h2>
+<div class="stats" style="margin-bottom:14px">
+<div class="st f"><b id="cFf">–</b><span>FIFO faults</span></div>
+<div class="st f"><b id="cLf">–</b><span>LRU faults</span></div>
+<div class="st h"><b id="cFh">–</b><span>FIFO hit ratio</span></div>
+<div class="st h"><b id="cLh">–</b><span>LRU hit ratio</span></div>
+</div>
+<div class="cmp">
+<div class="chart"><h3>Page faults (lower is better)</h3><div class="bars"><div class="bw"><b id="bf1"></b><div class="bar fifo" id="bar1"></div></div><div class="bw"><b id="bf2"></b><div class="bar lru" id="bar2"></div></div></div><div class="lab"><span>FIFO</span><span>LRU</span></div></div>
+<div class="chart"><h3>Hit ratio % (higher is better)</h3><div class="bars"><div class="bw"><b id="bh1"></b><div class="bar fifo" id="bar3"></div></div><div class="bw"><b id="bh2"></b><div class="bar lru" id="bar4"></div></div></div><div class="lab"><span>FIFO</span><span>LRU</span></div></div>
+</div>
+<div id="verdict"></div>
+</section>
+
+<section id="learn">
+<h2>5 · Learn</h2>
+<div class="note"><b>Page replacement</b> is what an operating system does when a process touches a page that is not in physical memory (a <i>page fault</i>) and every frame is already occupied. The OS must choose a <i>victim</i> page to evict so the new page can be loaded. A good algorithm keeps the number of faults low, because every fault means a slow disk access.</div>
+<div class="two">
+<div><h3>FIFO – First In First Out</h3><p>Evicts the page that has been in memory the longest, using a simple queue. Hits do not change the order.</p>
+<ul><li><b>+</b> Very simple, tiny overhead.</li><li><b>−</b> Ignores usage: a heavily used page can be evicted just because it is old.</li><li><b>−</b> Suffers from Belady’s anomaly (more frames can cause more faults).</li></ul></div>
+<div><h3>LRU – Least Recently Used</h3><p>Evicts the page whose last use is furthest in the past, assuming recent behavior predicts the near future (locality).</p>
+<ul><li><b>+</b> Usually fewer faults than FIFO.</li><li><b>+</b> No Belady’s anomaly (it is a stack algorithm).</li><li><b>−</b> Needs tracking of every access, which costs hardware or software overhead.</li></ul></div>
+</div>
+<h3>Key differences</h3>
+<div class="tl"><table><tr><th></th><th>FIFO</th><th>LRU</th></tr>
+<tr><th>Victim chosen by</th><td>Time loaded</td><td>Time last used</td></tr>
+<tr><th>Updated on hit?</th><td>No</td><td>Yes</td></tr>
+<tr><th>Implementation</th><td>Queue</td><td>Timestamps / stack</td></tr>
+<tr><th>Belady’s anomaly</th><td>Possible</td><td>Never</td></tr>
+<tr><th>Typical performance</th><td>Weaker</td><td>Better</td></tr></table></div>
+</section>
+
+<section id="example">
+<h2>6 · Worked example</h2>
+<p>Reference string <b>7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1</b> with <b>3 frames</b>. Choose an algorithm to see each decision:</p>
+<div class="tabs"><button class="on" data-a="FIFO">FIFO</button><button data-a="LRU">LRU</button><button id="loadEx" style="margin-left:auto">Load into simulator ↑</button></div>
+<div class="tl ex" id="exTable"></div>
+<p id="exSum" style="font-weight:600"></p>
+</section>
+</main>
+<footer>Built for learning Operating Systems · runs entirely in your browser</footer>
+
+<script>
+const $=s=>document.querySelector(s);
+const EX={r:[7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1],n:3};
+
+/* ---------- core algorithm ---------- */
+function simulate(refs,n,alg){
+  const frames=Array(n).fill(null),load={},last={},steps=[];
+  let hits=0,faults=0;
+  const key=p=>alg==='FIFO'?load[p]:last[p];
+  refs.forEach((p,t)=>{
+    let idx=frames.indexOf(p),hit=idx>=0,removed=null,vkey=null,free=false;
+    if(hit){hits++;}
+    else{
+      faults++;
+      const e=frames.indexOf(null);
+      if(e>=0){idx=e;free=true;}
+      else{
+        idx=0;
+        for(let i=1;i<n;i++) if(key(frames[i])<key(frames[idx])) idx=i;
+        removed=frames[idx];vkey=key(removed);
+      }
+      frames[idx]=p;load[p]=t;
+    }
+    last[p]=t;
+    const order=frames.filter(x=>x!==null).sort((a,b)=>key(a)-key(b));
+    steps.push({p,t,frames:[...frames],idx,hit,free,removed,vkey,order,hits,faults});
+  });
+  return {steps,hits,faults};
+}
+
+/* ---------- state ---------- */
+let run=null,cur=-1,timer=null,cfg=null;
+
+function parse(){
+  const raw=$('#refs').value.trim(),n=Number($('#frames').value),bad=m=>{$('#err').textContent=m;return null};
+  if(!raw) return bad('Enter a page reference string, e.g. 1, 2, 3, 2, 4.');
+  const parts=raw.split(/[\s,]+/).filter(Boolean);
+  if(parts.some(x=>!/^\d+$/.test(x))) return bad('Use only whole numbers (0 or more) separated by commas or spaces.');
+  if(parts.length>40) return bad('Please use at most 40 references.');
+  if(!Number.isInteger(n)||n<1||n>8) return bad('Frames must be a whole number from 1 to 8.');
+  $('#err').textContent='';
+  return {refs:parts.map(Number),n,alg:$('#alg').value};
+}
+function ensure(){
+  if(run) return true;
+  const c=parse(); if(!c) return false;
+  cfg=c;run=simulate(c.refs,c.n,c.alg);cur=-1;return true;
+}
+const pct=(a,b)=>b?Math.round(a/b*1000)/10:0;
+
+/* ---------- rendering ---------- */
+function render(){
+  const c=cfg||parse()||{refs:[],n:Number($('#frames').value)||3,alg:$('#alg').value};
+  const n=c.n,s=run&&cur>=0?run.steps[cur]:null;
+  $('#strip').innerHTML=c.refs.map((p,i)=>{
+    const st=run&&i<=cur?run.steps[i]:null;
+    return `<div class="rc ${st?(st.hit?'h':'f'):''} ${i===cur?'now':''}">${p}</div>`}).join('');
+  let h='';
+  for(let i=0;i<n;i++){
+    const v=s?s.frames[i]:null,act=s&&s.idx===i;
+    let cls='box'+(v!==null?' filled':''),tag='',tc='';
+    if(act){
+      if(s.hit){cls+=' hit';tag='HIT';tc='h';}
+      else if(s.free){cls+=' fault empty';tag='LOADED';tc='n';}
+      else{cls+=' fault';tag='OUT '+s.removed+' → IN '+s.p;tc='f';}
+    }
+    h+=`<div class="fr"><small>Frame ${i+1}</small><div class="${cls}">${v===null?'':v}</div><div class="tag ${tc}">${tag}</div></div>`;
+  }
+  $('#frameBox').innerHTML=h;
+  const b=$('#banner');
+  if(!s){b.className='';b.innerHTML=run?'Ready. Press <b>Next Step</b> or <b>Resume</b>.':'Press <b>Start</b> to run automatically, or <b>Next Step</b> to go one reference at a time.';$('#order').textContent='';}
+  else{
+    b.className=s.hit?'h':'f';
+    let m=`<b>Step ${cur+1}/${c.refs.length}</b> · accessing page <b>${s.p}</b> → `;
+    if(s.hit) m+=`<b style="color:var(--hit)">PAGE HIT</b>. Page ${s.p} is already in Frame ${s.idx+1}.`;
+    else if(s.free) m+=`<b style="color:var(--flt)">PAGE FAULT</b>. A free frame exists, so page ${s.p} is loaded into Frame ${s.idx+1}.`;
+    else m+=`<b style="color:var(--flt)">PAGE FAULT</b>. Memory is full, so ${c.alg} evicts page <b>${s.removed}</b> (${c.alg==='FIFO'?'loaded':'last used'} at step ${s.vkey+1}) and inserts page <b>${s.p}</b> in Frame ${s.idx+1}.`;
+    b.innerHTML=m;
+    $('#order').innerHTML=c.alg==='FIFO'
+      ?`Eviction queue (next victim first): <b>${s.order.join(' → ')}</b>`
+      :`Recency order (least → most recently used): <b>${s.order.join(' → ')}</b>`;
+  }
+  // timeline
+  if(s){
+    let t='<table><tr><th>Ref</th>'+run.steps.slice(0,cur+1).map((x,i)=>`<th class="${i===cur?'hl':''}">${x.p}</th>`).join('')+'</tr>';
+    for(let f=0;f<n;f++) t+=`<tr><th>F${f+1}</th>`+run.steps.slice(0,cur+1).map((x,i)=>`<td class="${i===cur?'hl':''}">${x.frames[f]===null?'':x.frames[f]}</td>`).join('')+'</tr>';
+    t+='<tr><th>Result</th>'+run.steps.slice(0,cur+1).map((x,i)=>`<td class="${x.hit?'H':'F'} ${i===cur?'hl':''}">${x.hit?'H':'F'}</td>`).join('')+'</tr></table>';
+    $('#tl').innerHTML=t;$('#tl').scrollLeft=1e5;
+  }else $('#tl').innerHTML='';
+  // stats
+  const done=s?cur+1:0,hits=s?s.hits:0,flt=s?s.faults:0;
+  $('#sTot').textContent=c.refs.length;$('#sDone').textContent=done;
+  $('#sHit').textContent=hits;$('#sFlt').textContent=flt;
+  $('#sHr').textContent=pct(hits,done)+'%';$('#sFr').textContent=pct(flt,done)+'%';
+  buttons();
+}
+function buttons(){
+  const playing=!!timer,total=run?run.steps.length:0,fin=run&&cur>=total-1;
+  $('#bPause').disabled=!playing;
+  $('#bResume').disabled=playing||!run||fin;
+  $('#bPrev').disabled=!run||cur<0;
+  $('#bNext').disabled=fin;
+}
+function compare(){
+  const c=parse(); if(!c) return;
+  const f=simulate(c.refs,c.n,'FIFO'),l=simulate(c.refs,c.n,'LRU'),N=c.refs.length;
+  const fh=pct(f.hits,N),lh=pct(l.hits,N);
+  $('#cFf').textContent=f.faults;$('#cLf').textContent=l.faults;
+  $('#cFh').textContent=fh+'%';$('#cLh').textContent=lh+'%';
+  const mx=Math.max(f.faults,l.faults,1);
+  $('#bar1').style.height=f.faults/mx*80+'%';$('#bar2').style.height=l.faults/mx*80+'%';
+  $('#bf1').textContent=f.faults;$('#bf2').textContent=l.faults;
+  $('#bar3').style.height=fh*.8+'%';$('#bar4').style.height=lh*.8+'%';
+  $('#bh1').textContent=fh+'%';$('#bh2').textContent=lh+'%';
+  const d=f.faults-l.faults;
+  $('#verdict').textContent=d>0?`LRU wins: ${d} fewer page fault${d>1?'s':''} than FIFO.`:d<0?`FIFO wins here: ${-d} fewer page fault${-d>1?'s':''} than LRU (this happens with some access patterns).`:'Tie: both algorithms cause the same number of page faults.';
+}
+
+/* ---------- controls ---------- */
+function stop(){clearInterval(timer);timer=null;}
+function step(dir){
+  if(!ensure()) return false;
+  const nx=cur+dir;
+  if(nx<-1||nx>=run.steps.length) return false;
+  cur=nx;render();return true;
+}
+function play(){
+  stop();
+  timer=setInterval(()=>{ if(!step(1)){stop();buttons();} else if(cur>=run.steps.length-1){stop();buttons();} },Number($('#speed').value));
+  buttons();
+}
+function resetSim(){stop();run=null;cfg=null;cur=-1;render();}
+$('#bStart').onclick=()=>{stop();run=null;if(!ensure())return;cur=-1;render();step(1);play();};
+$('#bPause').onclick=()=>{stop();buttons();};
+$('#bResume').onclick=()=>{if(ensure()&&cur<run.steps.length-1)play();};
+$('#bNext').onclick=()=>{stop();step(1);};
+$('#bPrev').onclick=()=>{stop();step(-1);};
+$('#bReset').onclick=resetSim;
+$('#speed').onchange=()=>{if(timer)play();};
+function changed(){resetSim();compare();}
+['refs','frames'].forEach(i=>$('#'+i).addEventListener('input',changed));
+$('#alg').addEventListener('change',changed);
+document.querySelectorAll('.chip[data-r]').forEach(b=>b.onclick=()=>{$('#refs').value=b.dataset.r.split(',').join(', ');$('#frames').value=b.dataset.f;changed();});
+$('#rand').onclick=()=>{$('#refs').value=Array.from({length:15},()=>Math.floor(Math.random()*7)).join(', ');changed();};
+
+/* ---------- worked example ---------- */
+let exAlg='FIFO';
+function renderEx(){
+  const r=simulate(EX.r,EX.n,exAlg);
+  let t='<table><tr><th>Step</th><th>Page</th><th>Frames</th><th>What happens</th></tr>';
+  r.steps.forEach(s=>{
+    let w;
+    if(s.hit) w=`Page ${s.p} is already in memory → <b>hit</b>.`+(exAlg==='LRU'?' Its recent-use time is refreshed.':' Queue order is unchanged.');
+    else if(s.free) w=`Free frame available → load ${s.p}. <b>Fault</b>.`;
+    else w=`Memory full → <b>fault</b>. ${exAlg==='FIFO'?`Oldest page is ${s.removed} (loaded at step ${s.vkey+1})`:`Least recently used page is ${s.removed} (last used at step ${s.vkey+1})`}; replace it with ${s.p}.`;
+    t+=`<tr><td>${s.t+1}</td><td><b>${s.p}</b></td><td>${s.frames.map(x=>x===null?'–':x).join(' | ')}</td><td class="${s.hit?'H':'F'}" style="font-weight:400;color:inherit">${w}</td></tr>`;
+  });
+  $('#exTable').innerHTML=t+'</table>';
+  $('#exSum').textContent=`${exAlg}: ${r.faults} faults, ${r.hits} hits out of ${EX.r.length} references (hit ratio ${pct(r.hits,EX.r.length)}%).`;
+}
+document.querySelectorAll('.tabs button[data-a]').forEach(b=>b.onclick=()=>{
+  exAlg=b.dataset.a;document.querySelectorAll('.tabs button[data-a]').forEach(x=>x.classList.toggle('on',x===b));renderEx();});
+$('#loadEx').onclick=()=>{$('#refs').value=EX.r.join(', ');$('#frames').value=EX.n;$('#alg').value=exAlg;changed();$('#sim').scrollIntoView();};
+
+render();compare();renderEx();
+</script>
+</body>
+</html>
